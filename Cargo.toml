@@ -1,8 +1,8 @@
 [workspace]
 members = [
-    "lunarity",
-    "ast",
-    "parser",
+    # "lunarity",
+    # "ast",
+    # "parser",
     "lexer",
 ]
 
