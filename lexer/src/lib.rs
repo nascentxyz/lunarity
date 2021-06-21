@@ -13,7 +13,10 @@ pub fn read_pragma<'source, S: logos::Source<'source>>(lex: &mut Lexer<S>) -> S:
 
     loop {
         match lex.read() {
-            0x01...0x20 => lex.bump(),
+            Some(num) => match num {
+                0x01...0x20 => lex.bump(num as usize),
+                _ => break,
+            },
             _ => break,
         }
     }
@@ -22,29 +25,32 @@ pub fn read_pragma<'source, S: logos::Source<'source>>(lex: &mut Lexer<S>) -> S:
 
     loop {
         match lex.read() {
-            0 => {
-                lex.token = Token::UnexpectedEndOfProgram;
-                let end = lex.range().end;
+            Some(num) => match num {
+                0 => {
+                    lex.token = Token::UnexpectedEndOfProgram;
+                    let end = lex.range().end;
 
-                return lex
-                    .source
-                    .slice(start..end)
-                    .expect("0 guarantees being at the end; qed");
-            }
-            b';' => {
-                let end = lex.range().end;
+                    return lex
+                        .source
+                        .slice(start..end)
+                        .expect("0 guarantees being at the end; qed");
+                }
+                b';' => {
+                    let end = lex.range().end;
 
-                let version = lex
-                    .source
-                    .slice(start..end)
-                    .expect("Still within bounds; qed");
+                    let version = lex
+                        .source
+                        .slice(start..end)
+                        .expect("Still within bounds; qed");
 
-                lex.token = Token::Semicolon;
-                lex.bump();
+                    lex.token = Token::Semicolon;
+                    lex.bump(1);
 
-                return version;
-            }
-            _ => lex.bump(),
+                    return version;
+                }
+                _ => lex.bump(1),
+            },
+            _ => lex.bump(1),
         }
     }
 }

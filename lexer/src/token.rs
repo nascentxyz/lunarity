@@ -17,7 +17,7 @@
 //!  ```
 //!
 
-use logos::{Logos, Lexer, Extras, Source, Slice};
+use logos::{Extras, Lexer, Logos, Slice, Source};
 
 /// If the current token is an elementary type,
 /// this will hold it's size, if applicable.
@@ -432,14 +432,17 @@ fn ignore_comments<'source, Src: Source<'source>>(lex: &mut Lexer<Token, Src>) {
     if lex.slice().as_bytes() == b"/*" {
         loop {
             match lex.read() {
-                0    => return lex.token = Token::UnexpectedEndOfProgram,
-                b'*' => {
-                    if lex.next() == b'/' {
-                        lex.bump();
-                        break;
+                Some(num) => match num {
+                    0 => return lex.token = Token::UnexpectedEndOfProgram,
+                    b'*' => {
+                        if lex.read() == Some(b'/') {
+                            lex.bump(1);
+                            break;
+                        }
                     }
+                    _ => lex.bump(1),
                 },
-                _ => lex.bump(),
+                _ => lex.bump(1),
             }
         }
     }
@@ -539,11 +542,11 @@ fn rational_to_integer<'source, Src: Source<'source>>(lex: &mut Lexer<Token, Src
                         _ => {
                             floating -= 1 + zeroes;
                             zeroes = 0;
-                        },
+                        }
                     }
                 }
             }
-            _ => {},
+            _ => {}
         }
     }
 
@@ -553,7 +556,7 @@ fn rational_to_integer<'source, Src: Source<'source>>(lex: &mut Lexer<Token, Src
     for &byte in iter {
         match byte {
             b'-' => neg = -1,
-            b'+' => {},
+            b'+' => {}
             byte => e = e * 10 + (byte - b'0') as i32,
         }
     }
