@@ -1,37 +1,38 @@
-extern crate toolshed;
-extern crate lunarity_lexer as lexer;
 extern crate lunarity_ast as ast;
+extern crate lunarity_lexer as lexer;
+extern crate toolshed;
 
-#[cfg(test)] mod mock;
-#[macro_use] mod expect_macro;
+#[cfg(test)]
+mod mock;
+#[macro_use]
+mod expect_macro;
 
 #[cfg(test)]
 #[macro_use]
 extern crate pretty_assertions;
 
-
-mod source;
-mod type_name;
-mod contract;
-mod function;
-mod expression;
-mod nested;
-mod statement;
 mod assembly;
+mod contract;
 mod error;
+mod expression;
+mod function;
+mod nested;
+mod source;
+mod statement;
+mod type_name;
 
-use toolshed::{Arena, NulTermStr};
 use toolshed::list::GrowableList;
+use toolshed::{Arena, NulTermStr};
 
-pub use self::statement::{StatementContext, FunctionContext, ModifierContext};
-pub use self::type_name::{TypeNameContext, RegularTypeNameContext, StatementTypeNameContext};
 pub use self::nested::*;
+pub use self::statement::{FunctionContext, ModifierContext, StatementContext};
+pub use self::type_name::{RegularTypeNameContext, StatementTypeNameContext, TypeNameContext};
 
 use ast::*;
 use error::Error;
-use lexer::{Lexer, Token};
+use lexer::Source;
 use lexer::Token::*;
-
+use lexer::{Lexer, Token};
 
 pub struct Parser<'ast> {
     arena: &'ast Arena,
@@ -107,7 +108,7 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     fn expect_str_node(&mut self, token: Token) -> Node<'ast, &'ast str> {
-        let val          = self.lexer.slice();
+        let val = self.lexer.slice();
         let (start, end) = self.loc();
 
         self.expect(token);
@@ -160,14 +161,10 @@ impl<'ast> Parser<'ast> {
 
     fn error(&mut self) {
         let token = self.lexer.token;
-        let raw   = self.lexer.slice().into();
-        let span  = self.lexer.range();
+        let raw = self.lexer.slice().into();
+        let span = self.lexer.range();
 
-        self.errors.push(Error {
-            token,
-            raw,
-            span,
-        });
+        self.errors.push(Error { token, raw, span });
     }
 
     #[inline]
@@ -261,10 +258,9 @@ pub fn parse<'src, 'ast>(source: &'src str) -> Result<Program<'ast>, Vec<Error>>
 
     match errors.len() {
         0 => Ok(Program::new(body, arena)),
-        _ => Err(errors)
+        _ => Err(errors),
     }
 }
-
 
 #[cfg(test)]
 mod test {

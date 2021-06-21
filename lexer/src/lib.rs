@@ -3,7 +3,7 @@ extern crate logos;
 mod token;
 
 pub use self::token::Token;
-pub use logos::{Logos, lookup};
+pub use logos::{lookup, Logos, Source};
 pub type Lexer<S> = logos::Lexer<Token, S>;
 
 // FIXME: This should probably be handled with a callback
@@ -14,7 +14,7 @@ pub fn read_pragma<'source, S: logos::Source<'source>>(lex: &mut Lexer<S>) -> S:
     loop {
         match lex.read() {
             0x01...0x20 => lex.bump(),
-            _           => break,
+            _ => break,
         }
     }
 
@@ -26,40 +26,49 @@ pub fn read_pragma<'source, S: logos::Source<'source>>(lex: &mut Lexer<S>) -> S:
                 lex.token = Token::UnexpectedEndOfProgram;
                 let end = lex.range().end;
 
-                return lex.source.slice(start..end).expect("0 guarantees being at the end; qed");
-            },
+                return lex
+                    .source
+                    .slice(start..end)
+                    .expect("0 guarantees being at the end; qed");
+            }
             b';' => {
                 let end = lex.range().end;
 
-                let version = lex.source.slice(start..end).expect("Still within bounds; qed");
+                let version = lex
+                    .source
+                    .slice(start..end)
+                    .expect("Still within bounds; qed");
 
                 lex.token = Token::Semicolon;
                 lex.bump();
 
                 return version;
-            },
+            }
             _ => lex.bump(),
         }
     }
 }
 
-
 #[cfg(test)]
 mod test {
-    use super::*;
     use self::Token::*;
+    use super::*;
     use logos::Logos;
 
     fn assert_lex<T>(source: &str, tokens: T)
     where
-        T: AsRef<[(Token, &'static str)]>
+        T: AsRef<[(Token, &'static str)]>,
     {
         let mut lex = Token::lexer(source);
 
         for &(ref token, slice) in tokens.as_ref() {
             assert!(
                 lex.token == *token && lex.slice() == slice,
-                "\n\n\n\tExpected {:?}({:?}), found {:?}({:?}) instead!\n\n\n", token, slice, lex.token, lex.slice()
+                "\n\n\n\tExpected {:?}({:?}), found {:?}({:?}) instead!\n\n\n",
+                token,
+                slice,
+                lex.token,
+                lex.slice()
             );
             lex.advance();
         }
@@ -93,7 +102,7 @@ mod test {
             "
                 foo _foo $foo $_foo _ $ $$ fooBar BarFoo foo10 $1
             ",
-             &[
+            &[
                 (Identifier, "foo"),
                 (Identifier, "_foo"),
                 (Identifier, "$foo"),
@@ -105,7 +114,7 @@ mod test {
                 (Identifier, "BarFoo"),
                 (Identifier, "foo10"),
                 (Identifier, "$1"),
-            ][..]
+            ][..],
         );
     }
 
@@ -115,7 +124,7 @@ mod test {
             "
                 ; : , . ( ) { } [ ] =>
             ",
-             &[
+            &[
                 (Semicolon, ";"),
                 (Colon, ":"),
                 (Comma, ","),
@@ -127,7 +136,7 @@ mod test {
                 (BracketOpen, "["),
                 (BracketClose, "]"),
                 (Arrow, "=>"),
-            ][..]
+            ][..],
         );
     }
 
@@ -138,7 +147,7 @@ mod test {
                 true false 0 42 0xDEAD 0Xdead 3.14 3.14E+2 .12345
                 5.1e2 42e-3 500E-1 500.1 10.000 'foo bar' "doge to the moon"
             "#,
-             &[
+            &[
                 (LiteralTrue, "true"),
                 (LiteralFalse, "false"),
                 (LiteralInteger, "0"),
@@ -155,20 +164,25 @@ mod test {
                 (LiteralInteger, "10.000"),
                 (LiteralString, "'foo bar'"),
                 (LiteralString, "\"doge to the moon\""),
-            ][..]
+            ][..],
         );
     }
 
     #[test]
     fn strings() {
-        assert_lex(r#"
+        assert_lex(
+            r#"
             foo
             "\x19Ethereum Signed Message:\n47Please take my Ether and try to build Polkadot."
         "#,
-        &[
-            (Identifier, "foo"),
-            (LiteralString, r#""\x19Ethereum Signed Message:\n47Please take my Ether and try to build Polkadot.""#),
-        ])
+            &[
+                (Identifier, "foo"),
+                (
+                    LiteralString,
+                    r#""\x19Ethereum Signed Message:\n47Please take my Ether and try to build Polkadot.""#,
+                ),
+            ],
+        )
     }
 
     #[test]
@@ -180,7 +194,7 @@ mod test {
                 is mapping memory new payable public pragma private pure
                 return returns storage super this throw using view while
             ",
-             &[
+            &[
                 (KeywordAnonymous, "anonymous"),
                 (KeywordAs, "as"),
                 (KeywordAssembly, "assembly"),
@@ -215,7 +229,7 @@ mod test {
                 (KeywordUsing, "using"),
                 (KeywordView, "view"),
                 (KeywordWhile, "while"),
-            ][..]
+            ][..],
         );
     }
 
@@ -226,7 +240,7 @@ mod test {
                 var function event modifier struct
                 enum contract library interface
             ",
-             &[
+            &[
                 (DeclarationVar, "var"),
                 (DeclarationFunction, "function"),
                 (DeclarationEvent, "event"),
@@ -236,7 +250,7 @@ mod test {
                 (DeclarationContract, "contract"),
                 (DeclarationLibrary, "library"),
                 (DeclarationInterface, "interface"),
-            ][..]
+            ][..],
         );
     }
 
@@ -247,7 +261,7 @@ mod test {
                 wei szabo finney ether
                 seconds minutes hours days weeks years
             ",
-             &[
+            &[
                 (UnitWei, "wei"),
                 (UnitSzabo, "szabo"),
                 (UnitFinney, "finney"),
@@ -258,7 +272,7 @@ mod test {
                 (UnitTimeDays, "days"),
                 (UnitTimeWeeks, "weeks"),
                 (UnitTimeYears, "years"),
-            ][..]
+            ][..],
         );
     }
 
@@ -270,7 +284,7 @@ mod test {
                 inline let match null of relocatable static
                 switch try type typeof
             ",
-             &[
+            &[
                 (ReservedWord, "abstract"),
                 (ReservedWord, "after"),
                 (ReservedWord, "case"),
@@ -289,7 +303,7 @@ mod test {
                 (ReservedWord, "try"),
                 (ReservedWord, "type"),
                 (ReservedWord, "typeof"),
-            ][..]
+            ][..],
         );
     }
 
@@ -301,7 +315,7 @@ mod test {
                 mulmod sha3 keccak256 log0 log1 log2 log3 log4
                 sha256 ecrecover ripemd160 assert revert require
             ",
-             &[
+            &[
                 (IdentifierBuiltin, "block"),
                 (IdentifierBuiltin, "msg"),
                 (IdentifierBuiltin, "tx"),
@@ -323,7 +337,7 @@ mod test {
                 (IdentifierBuiltin, "assert"),
                 (IdentifierBuiltin, "revert"),
                 (IdentifierBuiltin, "require"),
-            ][..]
+            ][..],
         );
     }
 
@@ -335,7 +349,7 @@ mod test {
                 < <= > >= == != & ^ | && || ?
                 = += -= *= /= %= <<= >>= &= ^= |=
             ",
-             &[
+            &[
                 (OperatorIncrement, "++"),
                 (OperatorDecrement, "--"),
                 (OperatorLogicalNot, "!"),
@@ -371,7 +385,7 @@ mod test {
                 (AssignBitAnd, "&="),
                 (AssignBitXor, "^="),
                 (AssignBitOr, "|="),
-            ][..]
+            ][..],
         );
     }
 
@@ -381,7 +395,7 @@ mod test {
             "
                 bool int uint string byte bytes address fixed ufixed
             ",
-             &[
+            &[
                 (TypeBool, "bool"),
                 (TypeInt, "int"),
                 (TypeUint, "uint"),
@@ -391,7 +405,7 @@ mod test {
                 (TypeAddress, "address"),
                 (TypeFixed, "fixed"),
                 (TypeUfixed, "ufixed"),
-            ][..]
+            ][..],
         );
     }
 
@@ -404,7 +418,7 @@ mod test {
                 bytes17 bytes18 bytes19 bytes20 bytes21 bytes22 bytes23 bytes24
                 bytes25 bytes26 bytes27 bytes28 bytes29 bytes30 bytes31 bytes32
             ",
-             &[
+            &[
                 (TypeByte, "bytes1"),
                 (TypeByte, "bytes2"),
                 (TypeByte, "bytes3"),
@@ -437,7 +451,7 @@ mod test {
                 (TypeByte, "bytes30"),
                 (TypeByte, "bytes31"),
                 (TypeByte, "bytes32"),
-            ][..]
+            ][..],
         );
     }
 
@@ -450,7 +464,7 @@ mod test {
                 int136 int144 int152 int160 int168 int176 int184 int192
                 int200 int208 int216 int224 int232 int240 int248 int256
             ",
-             &[
+            &[
                 (TypeInt, "int8"),
                 (TypeInt, "int16"),
                 (TypeInt, "int24"),
@@ -483,7 +497,7 @@ mod test {
                 (TypeInt, "int240"),
                 (TypeInt, "int248"),
                 (TypeInt, "int256"),
-            ][..]
+            ][..],
         );
     }
 
@@ -496,7 +510,7 @@ mod test {
                 uint136 uint144 uint152 uint160 uint168 uint176 uint184 uint192
                 uint200 uint208 uint216 uint224 uint232 uint240 uint248 uint256
             ",
-             &[
+            &[
                 (TypeUint, "uint8"),
                 (TypeUint, "uint16"),
                 (TypeUint, "uint24"),
@@ -529,7 +543,7 @@ mod test {
                 (TypeUint, "uint240"),
                 (TypeUint, "uint248"),
                 (TypeUint, "uint256"),
-            ][..]
+            ][..],
         );
     }
 
@@ -540,7 +554,7 @@ mod test {
                 fixed8x0  fixed8x1  fixed16x2  fixed256x80  fixed144x57
                 ufixed8x0 ufixed8x1 ufixed16x2 ufixed256x80 ufixed144x57
             ",
-             &[
+            &[
                 (TypeFixed, "fixed8x0"),
                 (TypeFixed, "fixed8x1"),
                 (TypeFixed, "fixed16x2"),
@@ -551,7 +565,7 @@ mod test {
                 (TypeUfixed, "ufixed16x2"),
                 (TypeUfixed, "ufixed256x80"),
                 (TypeUfixed, "ufixed144x57"),
-            ][..]
+            ][..],
         );
     }
 
@@ -562,7 +576,7 @@ mod test {
                 bytes33 int127 fixed127 fixed128x fixed258x80 fixed256x81
                 bytes0  uint0  uint53   ufixed1x1
             ",
-             &[
+            &[
                 (Identifier, "bytes33"),
                 (Identifier, "int127"),
                 (Identifier, "fixed127"),
@@ -573,7 +587,7 @@ mod test {
                 (Identifier, "uint0"),
                 (Identifier, "uint53"),
                 (Identifier, "ufixed1x1"),
-            ][..]
+            ][..],
         );
     }
 
@@ -585,7 +599,13 @@ mod test {
         let mut tokens = 0;
 
         while lex.token != EndOfProgram {
-            assert_ne!(lex.token, UnexpectedToken, "Unexpected: {} at {:?}", lex.slice(), lex.range());
+            assert_ne!(
+                lex.token,
+                UnexpectedToken,
+                "Unexpected: {} at {:?}",
+                lex.slice(),
+                lex.range()
+            );
             assert_ne!(lex.token, UnexpectedEndOfProgram);
 
             tokens += 1;
