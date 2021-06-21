@@ -3,7 +3,7 @@ name = "lunarity-ast"
 version = "0.2.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 license = "GPL-3.0"
-repository = "https://github.com/paritytech/lunarity"
+repository = "https://github.com/nascentxyz/lunarity"
 description = "Abstract Syntax Tree for the Solidity language"
 
 [dependencies]
